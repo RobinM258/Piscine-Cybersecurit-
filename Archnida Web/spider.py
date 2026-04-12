@@ -1,61 +1,80 @@
-import os
-import sys
+
 import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+import os
+import time
+from bs4 import BeautifulSoup 
+from pathlib import Path
+import sys
+from urllib.parse import urljoin
 
-# Vérifier si une URL a été donnée en argument
-if len(sys.argv) < 2:
-    print("❌ Utilisation : python test.py <URL>")
-    sys.exit(1)
 
-# Récupérer l’URL depuis les arguments
-url = sys.argv[1]
+dir_name = "data/"
 
-# Créer un dossier pour stocker les images
-os.makedirs("data", exist_ok=True)
 
-# Télécharger la page
-response = requests.get(url)
-if response.status_code != 200:
-    print(f"❌ Erreur lors du téléchargement de la page : {response.status_code}")
-    sys.exit(1)
-
-# Analyser la page HTML
-soup = BeautifulSoup(response.text, "html.parser")
-
-# Trouver toutes les balises <img>
-images = soup.find_all("img")
-
-print(f"🔍 {len(images)} images trouvées sur la page.")
-
-# Extensions autorisées
-extensions_valides = (".jpg", ".jpeg", ".png", ".gif", ".bmp")
-
-for img in images:
-    img_url = img.get("src")
-    if not img_url:
-        continue
-
-    # Construire l'URL complète
-    img_url = urljoin(url, img_url)
-
-    # Extraire le nom du fichier sans les paramètres
-    parsed_url = urlparse(img_url)
-    img_name = os.path.basename(parsed_url.path)
-
-    # Vérifier si le format est valide
-    if not img_name.lower().endswith(extensions_valides):
-        print(f"🚫 Ignoré (format non valide) : {img_name}")
-        continue
-
-    # Chemin complet du fichier
-    img_path = os.path.join("data", img_name)
-
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
+def GetPage(Url):
     try:
-        img_data = requests.get(img_url).content
-        with open(img_path, "wb") as f:
-            f.write(img_data)
-        print(f"✅ Téléchargé : {img_path}")
-    except Exception as e:
-        print(f"⚠️ Erreur pour {img_url} : {e}")
+        response = requests.get(Url, headers=headers, timeout=5)
+        return response.text
+    except requests.exceptions.RequestException as e:    
+        print(f"La requête vers l'url donné n'as pas fonctionné.\n Code d'erreur {e}")
+
+def CheckExtexion(Url):
+    extention = os.path.splitext(Url)
+    if (extention[1] == ".jpg" or extention[1] == ".jpeg" or extention[1] == ".png" or extention[1] == ".gif"  or extention[1] == ".bmp" ):
+        return True
+    else:
+        return False
+    
+def DlimgFromLink(soup):
+    global dir_name
+    for link in soup.find_all('img'):
+        File_name = dir_name + Path(link.get('src')).name
+        if (CheckExtexion(Path(link.get('src')).name) == True):
+            try:
+                ##print(f"Tentative de connexion sur {File_name}")
+                response = requests.get(link.get('src'), headers=headers, timeout=5)
+                with open(File_name, "wb") as file:
+                    file.write(response.content)
+            except requests.exceptions.RequestException as e:    
+                print(f"La requête vers l'url donné n'as pas fonctionné.\n Code d'erreur {e}")
+                continue;
+
+def Core(Url, recursion):
+    Example = "https"
+    soup = BeautifulSoup (GetPage(Url), 'html.parser')
+    DlimgFromLink(soup)
+    if (recursion > 1):
+        for link in soup.find_all('a'):
+            href = urljoin(Example, str(link.get('href')))
+            print(href)
+            ##href = str(link.get('href'))
+            if GetPage(href) != None:
+                print("J'ouvre la page ", href, "recursion ", recursion - 1)
+                Core(href, recursion - 1)
+            else:
+                print ("lien nul ", href)
+    
+
+def main(Url):
+    recursion = 1
+    global dir_name
+    for i in range(len(sys.argv)):
+        if (sys.argv[i] == "-p"):
+            dir_name = sys.argv[i + 1]
+        if (sys.argv[i] == "-r"):
+            if sys.argv[i + 1] == "-l":
+                recursion = int(sys.argv[i + 2] )
+            else:
+                recursion = 5
+    if not os.path.exists(dir_name):
+        os.mkdir(dir_name)
+    Core(Url, recursion)
+
+if len(sys.argv) < 2:
+    print("Please use: ./spider [-rlp] URL")
+
+URL = sys.argv[len(sys.argv) - 1]
+main(URL)
