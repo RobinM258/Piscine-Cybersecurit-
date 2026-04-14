@@ -55,7 +55,7 @@ def main():
 
     
 if len(sys.argv) < 2:
-    print("Please use: ./spider [-gk] URL")
+    print("Please use: ./ft_otp.py [-gk] URL")
     sys.exit(1)
 global now
 now = time.time()
