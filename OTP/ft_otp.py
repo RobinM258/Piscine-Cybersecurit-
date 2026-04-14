@@ -15,6 +15,7 @@ def isHexa(str):
             return True
         else:
             return False
+            
 def Generate():
     global now
     count = int(now / 30)
@@ -31,8 +32,6 @@ def Generate():
         print(code)
     except:
         print("Error")
-
-
 
 def main():
     for i in range(len(sys.argv)):
